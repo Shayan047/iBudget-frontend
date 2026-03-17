@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import CategoryModal from "../components/CategoryModal";
+import DeleteModal from "../components/DeleteModal";
+import UpdateExpenseModal from "../components/UpdateExpenseModal";
+import ActionMenu from "../components/ActionMenu";
 
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
@@ -9,7 +13,12 @@ const Expenses = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchExpenses = async () => {
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [updateTarget, setUpdateTarget] = useState(null);
+
+  const fetchData = async () => {
     try {
       const [expRes, catRes] = await Promise.all([
         api.get("/expenses/"),
@@ -24,7 +33,7 @@ const Expenses = () => {
     }
   };
 
-  useEffect(() => { fetchExpenses(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -39,7 +48,7 @@ const Expenses = () => {
         date: form.date || new Date().toISOString(),
       });
       setForm({ amount: "", category_id: "", date: "" });
-      fetchExpenses();
+      fetchData();
     } catch (err) {
       setError("Failed to add expense.");
     } finally {
@@ -47,18 +56,40 @@ const Expenses = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Delete this expense?")) return;
+  const handleDeleteConfirm = async () => {
+    setDeleteLoading(true);
     try {
-      await api.delete(`/expenses/${id}`);
-      fetchExpenses();
+      await api.delete(`/expenses/${deleteTarget.id}`);
+      setDeleteTarget(null);
+      fetchData();
     } catch (err) {
       console.error(err);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
   return (
     <div>
+      {showCategoryModal && (
+        <CategoryModal onClose={() => setShowCategoryModal(false)} onCreated={fetchData} />
+      )}
+      {deleteTarget && (
+        <DeleteModal
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDeleteConfirm}
+          loading={deleteLoading}
+        />
+      )}
+      {updateTarget && (
+        <UpdateExpenseModal
+          expense={updateTarget}
+          categories={categories}
+          onClose={() => setUpdateTarget(null)}
+          onUpdated={fetchData}
+        />
+      )}
+
       <div style={{ marginBottom: "32px" }}>
         <h2 style={{ fontSize: "26px", fontWeight: "700" }}>Expenses</h2>
         <p style={{ color: "var(--text-muted)", fontSize: "14px", marginTop: "4px" }}>
@@ -75,13 +106,20 @@ const Expenses = () => {
             <input type="number" name="amount" placeholder="0.00" step="0.01"
               value={form.amount} onChange={handleChange} required />
           </div>
-          <div style={{ flex: 1, minWidth: "140px" }}>
-            <label>Category</label>
+          <div style={{ flex: 1, minWidth: "180px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <label style={{ margin: 0 }}>Category</label>
+              <button type="button" onClick={() => setShowCategoryModal(true)} style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--primary-light)", fontSize: "12px", fontWeight: "600",
+                padding: 0, textDecoration: "underline",
+              }}>
+                + New Category
+              </button>
+            </div>
             <select name="category_id" value={form.category_id} onChange={handleChange} required>
               <option value="">Select category</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div style={{ flex: 1, minWidth: "140px" }}>
@@ -124,7 +162,7 @@ const Expenses = () => {
                   <td style={{ padding: "13px 0" }}>
                     <span style={{
                       background: "var(--primary-bg)", color: "var(--primary)",
-                      padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "500"
+                      padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "500",
                     }}>
                       {exp.category?.name || "—"}
                     </span>
@@ -133,17 +171,10 @@ const Expenses = () => {
                     -${exp.amount.toLocaleString()}
                   </td>
                   <td style={{ padding: "13px 0", textAlign: "right" }}>
-                    <button onClick={() => handleDelete(exp.id)}
-                      style={{
-                        background: "none", border: "none", color: "var(--text-muted)",
-                        cursor: "pointer", fontSize: "13px", fontWeight: "500",
-                        transition: "color 0.15s"
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.color = "var(--danger)"}
-                      onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-                    >
-                      Delete
-                    </button>
+                    <ActionMenu
+                      onEdit={() => setUpdateTarget(exp)}
+                      onDelete={() => setDeleteTarget(exp)}
+                    />
                   </td>
                 </tr>
               ))}
