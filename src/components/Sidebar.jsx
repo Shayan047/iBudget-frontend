@@ -3,6 +3,8 @@ import { useAuth } from "../context/AuthContext";
 import {
   HomeIcon,
   CreditCardIcon,
+  BanknotesIcon,
+  ChartBarIcon,
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
 } from "@heroicons/react/24/outline";
@@ -10,6 +12,8 @@ import {
 const navItems = [
   { to: "/home", label: "Dashboard", icon: HomeIcon },
   { to: "/expenses", label: "Expenses", icon: CreditCardIcon },
+  { to: "/income", label: "Income", icon: BanknotesIcon },
+  { to: "/budget", label: "Budget", icon: ChartBarIcon },
   { to: "/settings", label: "Settings", icon: Cog6ToothIcon },
 ];
 
@@ -34,14 +38,12 @@ const Sidebar = () => {
       flexDirection: "column",
       padding: "32px 20px",
     }}>
-      {/* Logo */}
       <div style={{ marginBottom: "48px", paddingLeft: "8px" }}>
         <h1 style={{ fontSize: "22px", fontWeight: "800", color: "var(--primary)", fontFamily: "Syne, sans-serif" }}>
           iBudget
         </h1>
       </div>
 
-      {/* Nav Links */}
       <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: "4px" }}>
         {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
@@ -67,7 +69,6 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      {/* Logout */}
       <button
         onClick={handleLogout}
         style={{
