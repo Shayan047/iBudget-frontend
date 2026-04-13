@@ -1,39 +1,61 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../api/axios";
 
+const MONTHS_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 const STATUS_OPTIONS = ["paid", "pending"];
+const DEFAULT_PARTICIPANT = { email: "", amount: "", status: "pending" };
 
-const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
+const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) => {
+  const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch full detail on mount since summary doesn't have participants
-  const [detail, setDetail] = useState(null);
-  const [fetching, setFetching] = useState(true);
-
   const [form, setForm] = useState({
-    description: expense.description || "",
-    date: expense.date ? new Date(expense.date).toISOString().split("T")[0] : "",
+    category_id: "",
+    total_amount: "",
+    my_share: "",
+    description: "",
+    date: "",
   });
 
-  // Participant states: { id, user_name, amount, status, is_creator }
-  const [participantForms, setParticipantForms] = useState([]);
+  const [participants, setParticipants] = useState([{ ...DEFAULT_PARTICIPANT }]);
 
-  // Fetch full expense detail to get participants
-  useState(() => {
+  // Fetch full detail on mount
+  useEffect(() => {
     const fetchDetail = async () => {
       try {
         const res = await api.get(`/expenses/${expense.id}`);
-        setDetail(res.data);
-        setParticipantForms(
-          res.data.participants.map((p) => ({
-            id: p.id,
-            user_name: p.user_name,
-            user_email: p.user_email,
-            amount: p.amount,
-            status: p.status,
-            is_creator: p.is_creator,
-          }))
+        const d = res.data;
+        setForm({
+          category_id: d.category?.id || "",
+          total_amount: d.total_amount || "",
+          my_share: d.participants?.find((p) => p.is_creator)?.amount || "",
+          description: d.description || "",
+          date: d.date ? new Date(d.date).toISOString().split("T")[0] : "",
+        });
+        // Load participants excluding creator
+        const nonCreators = d.participants?.filter((p) => !p.is_creator) || [];
+        setParticipants(
+          nonCreators.length > 0
+            ? nonCreators.map((p) => ({
+                email: p.user_email,
+                amount: p.amount,
+                status: p.status,
+              }))
+            : [{ ...DEFAULT_PARTICIPANT }]
         );
       } catch (err) {
         console.error(err);
@@ -42,45 +64,60 @@ const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
       }
     };
     fetchDetail();
-  }, []);
+  }, [expense.id]);
+
+  // Computed values
+  const totalAmount = parseFloat(form.total_amount) || 0;
+  const myShareAmount = parseFloat(form.my_share) || 0;
+  const participantsTotal = participants.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+  const remaining = parseFloat((totalAmount - myShareAmount - participantsTotal).toFixed(2));
+  const isOverBudget = remaining < 0;
 
   const handleFormChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleParticipantChange = (index, field, value) => {
-    setParticipantForms((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
+    setParticipants((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)));
+  };
+
+  const addParticipant = () => setParticipants((prev) => [...prev, { ...DEFAULT_PARTICIPANT }]);
+
+  const removeParticipant = (index) => {
+    if (participants.length === 1) return;
+    setParticipants((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
+    if (!form.my_share || myShareAmount <= 0) {
+      setError("Please enter your share.");
+      return;
+    }
+    if (isOverBudget) {
+      setError("Shares exceed total amount.");
+      return;
+    }
+    const validParticipants = participants.filter((p) => p.email.trim() !== "");
+    if (validParticipants.length === 0) {
+      setError("At least 1 participant is required.");
+      return;
+    }
+
+    setLoading(true);
     try {
-      // Step 1 — Update expense fields (description, date)
-      await api.patch(`/expenses/${expense.id}`, {
+      await api.patch(`/expenses/shared/${expense.id}`, {
+        category_id: parseInt(form.category_id),
+        total_amount: totalAmount,
+        my_share: myShareAmount,
         description: form.description,
         date: new Date(form.date).toISOString(),
+        users: validParticipants.map((p) => ({
+          email: p.email,
+          amount: parseFloat(p.amount),
+          status: p.status,
+        })),
       });
-
-      // Step 2 — Update each participant's status and creator's amount
-      await Promise.all(
-        participantForms.map((p) => {
-          if (p.is_creator) {
-            // Update creator's share amount
-            return api.patch(`/expenses/${expense.id}/participants/${p.id}`, {
-              status: p.status,
-              amount: parseFloat(p.amount),
-            });
-          } else {
-            // Update participant status only
-            return api.patch(`/expenses/${expense.id}/participants/${p.id}`, {
-              status: p.status,
-              amount: parseFloat(p.amount),
-            });
-          }
-        })
-      );
-
       onUpdated();
       onClose();
     } catch (err) {
@@ -109,7 +146,7 @@ const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
         className="card"
         style={{
           width: "100%",
-          maxWidth: "520px",
+          maxWidth: "560px",
           padding: "32px",
           maxHeight: "90vh",
           overflowY: "auto",
@@ -148,6 +185,19 @@ const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
             onSubmit={handleSubmit}
             style={{ display: "flex", flexDirection: "column", gap: "16px" }}
           >
+            {/* Total Amount */}
+            <div>
+              <label>Total Amount</label>
+              <input
+                type="number"
+                name="total_amount"
+                step="0.01"
+                value={form.total_amount}
+                onChange={handleFormChange}
+                required
+              />
+            </div>
+
             {/* Description */}
             <div>
               <label>Description</label>
@@ -158,6 +208,24 @@ const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
                 value={form.description}
                 onChange={handleFormChange}
               />
+            </div>
+
+            {/* Category */}
+            <div>
+              <label>Category</label>
+              <select
+                name="category_id"
+                value={form.category_id}
+                onChange={handleFormChange}
+                required
+              >
+                <option value="">Select category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Date */}
@@ -172,13 +240,64 @@ const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
               />
             </div>
 
+            {/* Allocation tracker */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 14px",
+                background: "var(--primary-bg)",
+                borderRadius: "8px",
+                border: `1px solid ${isOverBudget ? "var(--danger)" : "var(--border)"}`,
+              }}
+            >
+              <span style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: "500" }}>
+                Total: <strong style={{ color: "var(--text)" }}>${totalAmount.toFixed(2)}</strong>
+              </span>
+              <span style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: "500" }}>
+                Allocated:{" "}
+                <strong style={{ color: "var(--primary)" }}>
+                  ${(myShareAmount + participantsTotal).toFixed(2)}
+                </strong>
+              </span>
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  color: isOverBudget
+                    ? "var(--danger)"
+                    : remaining === 0
+                      ? "var(--success)"
+                      : "var(--text-muted)",
+                }}
+              >
+                Remaining: ${remaining.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Your Share */}
+            <div>
+              <label>Your Share</label>
+              <input
+                type="number"
+                name="my_share"
+                step="0.01"
+                placeholder="0.00"
+                value={form.my_share}
+                onChange={handleFormChange}
+                required
+                style={{ borderColor: isOverBudget ? "var(--danger)" : undefined }}
+              />
+            </div>
+
             {/* Participants */}
             <div>
               <label style={{ marginBottom: "10px", display: "block" }}>Participants</label>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {participantForms.map((p, index) => (
+                {participants.map((p, index) => (
                   <div
-                    key={p.id}
+                    key={index}
                     style={{
                       padding: "14px",
                       background: "var(--primary-bg)",
@@ -186,69 +305,93 @@ const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
                       border: "1px solid var(--border)",
                     }}
                   >
-                    {/* Name + Creator badge */}
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      <div>
-                        <p style={{ fontSize: "13px", fontWeight: "600", margin: 0 }}>
-                          {p.user_name}
-                        </p>
-                        <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>
-                          {p.user_email}
-                        </p>
-                      </div>
-                      {p.is_creator && (
-                        <span
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: "600",
-                            color: "var(--primary)",
-                            background: "white",
-                            padding: "2px 8px",
-                            borderRadius: "20px",
-                            border: "1px solid var(--primary)",
-                            height: "fit-content",
-                          }}
-                        >
-                          Creator
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Amount + Status */}
-                    <div style={{ display: "flex", gap: "10px" }}>
-                      <div style={{ flex: 1 }}>
-                        <label>Share Amount</label>
+                    <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+                      <div style={{ flex: 2 }}>
+                        {index === 0 && <label>Email</label>}
                         <input
-                          type="number"
-                          step="0.01"
-                          value={p.amount}
-                          onChange={(e) => handleParticipantChange(index, "amount", e.target.value)}
+                          type="email"
+                          placeholder="participant@example.com"
+                          value={p.email}
+                          onChange={(e) => handleParticipantChange(index, "email", e.target.value)}
+                          required
                         />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <label>Status</label>
-                        <select
-                          value={p.status}
-                          onChange={(e) => handleParticipantChange(index, "status", e.target.value)}
-                        >
-                          {STATUS_OPTIONS.map((s) => (
-                            <option key={s} value={s}>
-                              {s.charAt(0).toUpperCase() + s.slice(1)}
-                            </option>
-                          ))}
-                        </select>
+                        {index === 0 && <label>Amount</label>}
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={p.amount}
+                          onChange={(e) => handleParticipantChange(index, "amount", e.target.value)}
+                          required
+                        />
                       </div>
+                      <div style={{ paddingTop: index === 0 ? "22px" : "0" }}>
+                        <button
+                          type="button"
+                          onClick={() => removeParticipant(index)}
+                          disabled={participants.length === 1}
+                          style={{
+                            background: "none",
+                            border: "1.5px solid var(--border)",
+                            borderRadius: "8px",
+                            padding: "10px 12px",
+                            cursor: participants.length === 1 ? "not-allowed" : "pointer",
+                            color: participants.length === 1 ? "var(--border)" : "var(--danger)",
+                            fontSize: "14px",
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div>
+                      <label>Payment Status</label>
+                      <select
+                        value={p.status}
+                        onChange={(e) => handleParticipantChange(index, "status", e.target.value)}
+                      >
+                        {STATUS_OPTIONS.map((s) => (
+                          <option key={s} value={s}>
+                            {s.charAt(0).toUpperCase() + s.slice(1)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 ))}
               </div>
+
+              <button
+                type="button"
+                onClick={addParticipant}
+                style={{
+                  marginTop: "10px",
+                  background: "none",
+                  border: "1.5px dashed var(--primary-light)",
+                  borderRadius: "8px",
+                  padding: "8px 16px",
+                  color: "var(--primary)",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-bg)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+              >
+                + Add Participant
+              </button>
             </div>
+
+            {isOverBudget && (
+              <p style={{ color: "var(--danger)", fontSize: "13px", textAlign: "center" }}>
+                ⚠️ Shares exceed total by ${Math.abs(remaining).toFixed(2)}. Please adjust.
+              </p>
+            )}
 
             {error && <p style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</p>}
 
@@ -258,7 +401,12 @@ const UpdateSharedExpenseModal = ({ expense, onClose, onUpdated }) => {
               <button type="button" className="btn-outline" onClick={onClose}>
                 Cancel
               </button>
-              <button type="submit" className="btn-primary" disabled={loading}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={loading || isOverBudget}
+                style={{ opacity: isOverBudget ? 0.5 : 1 }}
+              >
                 {loading ? "Saving..." : "Save Changes"}
               </button>
             </div>

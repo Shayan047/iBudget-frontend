@@ -168,6 +168,7 @@ const Expenses = () => {
       {updateTarget && updateTarget.is_shared && (
         <UpdateSharedExpenseModal
           expense={updateTarget}
+          categories={categories}
           onClose={() => setUpdateTarget(null)}
           onUpdated={fetchData}
         />

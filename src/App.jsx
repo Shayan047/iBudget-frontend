@@ -9,6 +9,7 @@ import Expenses from "./pages/Expenses";
 import Income from "./pages/Income";
 import Budget from "./pages/Budget";
 import Settings from "./pages/Settings";
+import BudgetBot from "./pages/BudgetBot";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
             <Route path="/income" element={<Income />} />
             <Route path="/budget" element={<Budget />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/budgetbot" element={<BudgetBot />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" />} />
