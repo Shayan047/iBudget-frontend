@@ -1,5 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import { sendMessage } from "../api/budgetbot";
+import { sendMessage } from "../api/budgetBot";
+
+// Generate a UUID for this session
+const generateSessionId = () => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 const WELCOME_MESSAGE = {
   id: 1,
@@ -14,26 +23,23 @@ const formatTime = (date) => {
 };
 
 const BudgetBot = () => {
+  // Session ID is generated once when component mounts
+  // On refresh → new mount → new UUID → new Redis session → fresh history
+  const [sessionId] = useState(() => generateSessionId());
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto scroll to bottom on new message
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Build history array for API (excludes welcome message)
-  const buildHistory = (msgs) =>
-    msgs.filter((m) => m.id !== 1).map((m) => ({ role: m.role, content: m.content }));
 
   const handleSend = async () => {
     const trimmed = input.trim();
     if (!trimmed || loading) return;
 
-    // Add user message
     const userMessage = {
       id: Date.now(),
       role: "user",
@@ -45,9 +51,14 @@ const BudgetBot = () => {
     setInput("");
     setLoading(true);
 
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
+
     try {
-      const history = buildHistory([...messages, userMessage]);
-      const reply = await sendMessage(trimmed, history);
+      // Pass sessionId — backend uses it to fetch/store Redis history
+      const reply = await sendMessage(trimmed, sessionId);
 
       setMessages((prev) => [
         ...prev,
@@ -84,6 +95,9 @@ const BudgetBot = () => {
 
   const handleClearChat = () => {
     setMessages([WELCOME_MESSAGE]);
+    // Note: Redis session still exists but frontend history is cleared.
+    // The next message will start a new visual conversation.
+    // If you want to also clear Redis, call a DELETE /budgetbot/session endpoint.
   };
 
   return (
@@ -91,7 +105,7 @@ const BudgetBot = () => {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "calc(100vh - 72px)", // full height minus top padding
+        height: "calc(100vh - 72px)",
       }}
     >
       {/* Header */}
@@ -166,7 +180,6 @@ const BudgetBot = () => {
                 alignItems: msg.role === "user" ? "flex-end" : "flex-start",
               }}
             >
-              {/* Bubble */}
               <div
                 style={{
                   maxWidth: "70%",
@@ -183,12 +196,11 @@ const BudgetBot = () => {
                   fontSize: "14px",
                   lineHeight: "1.6",
                   wordBreak: "break-word",
+                  whiteSpace: "pre-wrap",
                 }}
               >
                 {msg.content}
               </div>
-
-              {/* Timestamp */}
               <span
                 style={{
                   fontSize: "11px",
@@ -202,7 +214,7 @@ const BudgetBot = () => {
             </div>
           ))}
 
-          {/* Loading indicator */}
+          {/* Typing / loading indicator */}
           {loading && (
             <div style={{ display: "flex", alignItems: "flex-start" }}>
               <div
@@ -223,7 +235,7 @@ const BudgetBot = () => {
                       height: "7px",
                       borderRadius: "50%",
                       background: "var(--primary-light)",
-                      animation: "bounce 1.2s infinite",
+                      animation: "budgetbot-bounce 1.2s infinite",
                       animationDelay: `${i * 0.2}s`,
                     }}
                   />
@@ -272,7 +284,6 @@ const BudgetBot = () => {
             onFocus={(e) => (e.target.style.borderColor = "var(--primary-light)")}
             onBlur={(e) => (e.target.style.borderColor = "var(--border)")}
             onInput={(e) => {
-              // Auto resize textarea
               e.target.style.height = "auto";
               e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
             }}
@@ -283,19 +294,18 @@ const BudgetBot = () => {
             className="btn-primary"
             style={{
               padding: "11px 20px",
+              whiteSpace: "nowrap",
               opacity: !input.trim() || loading ? 0.5 : 1,
               cursor: !input.trim() || loading ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap",
             }}
           >
-            Send
+            {loading ? "Thinking..." : "Send"}
           </button>
         </div>
       </div>
 
-      {/* Bounce animation */}
       <style>{`
-        @keyframes bounce {
+        @keyframes budgetbot-bounce {
           0%, 60%, 100% { transform: translateY(0); }
           30% { transform: translateY(-6px); }
         }

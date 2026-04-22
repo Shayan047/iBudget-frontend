@@ -3,23 +3,10 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recha
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import Loader from "../components/Loader";
+import { MONTHS, isFutureMonth } from "../utils/dateHelpers";
 
 const COLORS = ["#3730a3", "#ef4444"];
-
-const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
 
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -75,7 +62,7 @@ const Home = () => {
   }, [month, year]);
 
   // Check if a month/year combo is in the future
-  const isFuture = (m, y) => {
+  const isFutureMonth = (m, y) => {
     if (y > now.getFullYear()) return true;
     if (y === now.getFullYear() && m > now.getMonth() + 1) return true;
     return false;
@@ -93,7 +80,7 @@ const Home = () => {
   const handleNext = () => {
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
-    if (isFuture(nextMonth, nextYear)) return; // block future navigation
+    if (isFutureMonth(nextMonth, nextYear)) return; // block future navigation
     setMonth(nextMonth);
     setYear(nextYear);
   };
@@ -107,7 +94,10 @@ const Home = () => {
     }
   };
 
-  const isNextDisabled = isFuture(month === 12 ? 1 : month + 1, month === 12 ? year + 1 : year);
+  const isNextDisabled = isFutureMonth(
+    month === 12 ? 1 : month + 1,
+    month === 12 ? year + 1 : year
+  );
 
   const pieData = data
     ? [
@@ -120,7 +110,7 @@ const Home = () => {
     <div>
       {/* Header */}
       <div style={{ marginBottom: "28px" }}>
-        <h2 style={{ fontSize: "26px", fontWeight: "700" }}>Hello {user?.name || "there"} 👋</h2>
+        <h2 style={{ fontSize: "26px", fontWeight: "700" }}>Dashboard</h2>
         <p style={{ color: "var(--text-muted)", fontSize: "14px", marginTop: "4px" }}>
           Here's your financial overview
         </p>
@@ -154,12 +144,12 @@ const Home = () => {
             value={month}
             onChange={(e) => {
               const newMonth = parseInt(e.target.value);
-              if (!isFuture(newMonth, year)) setMonth(newMonth);
+              if (!isFutureMonth(newMonth, year)) setMonth(newMonth);
             }}
             style={{ width: "140px" }}
           >
             {MONTHS.map((m, i) => {
-              const future = isFuture(i + 1, year);
+              const future = isFutureMonth(i + 1, year);
               return (
                 <option key={m} value={i + 1} disabled={future}>
                   {m}
@@ -203,7 +193,7 @@ const Home = () => {
       </div>
 
       {loading ? (
-        <p style={{ color: "var(--text-muted)" }}>Loading...</p>
+        <Loader fullPage />
       ) : (
         <>
           {/* Stat Cards */}

@@ -1,20 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
+import Loader from "./Loader";
 
-const MONTHS_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
 const STATUS_OPTIONS = ["paid", "pending"];
 const DEFAULT_PARTICIPANT = { email: "", amount: "", status: "pending" };
 
@@ -33,20 +20,22 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
 
   const [participants, setParticipants] = useState([{ ...DEFAULT_PARTICIPANT }]);
 
-  // Fetch full detail on mount
   useEffect(() => {
     const fetchDetail = async () => {
       try {
         const res = await api.get(`/expenses/${expense.id}`);
         const d = res.data;
+
+        const creatorEntry = d.participants?.find((p) => p.is_creator);
+
         setForm({
-          category_id: d.category?.id || "",
-          total_amount: d.total_amount || "",
-          my_share: d.participants?.find((p) => p.is_creator)?.amount || "",
-          description: d.description || "",
+          category_id: d.category?.id ?? "",
+          total_amount: d.total_amount ?? "",
+          my_share: creatorEntry?.amount ?? "",
+          description: d.description ?? "",
           date: d.date ? new Date(d.date).toISOString().split("T")[0] : "",
         });
-        // Load participants excluding creator
+
         const nonCreators = d.participants?.filter((p) => !p.is_creator) || [];
         setParticipants(
           nonCreators.length > 0
@@ -72,6 +61,8 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
   const participantsTotal = participants.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
   const remaining = parseFloat((totalAmount - myShareAmount - participantsTotal).toFixed(2));
   const isOverBudget = remaining < 0;
+  const isUnderAllocated = remaining > 0;
+  const allocationInvalid = isOverBudget || isUnderAllocated;
 
   const handleFormChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -94,8 +85,12 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
       setError("Please enter your share.");
       return;
     }
-    if (isOverBudget) {
-      setError("Shares exceed total amount.");
+    if (allocationInvalid) {
+      setError(
+        isOverBudget
+          ? `Shares exceed total by $${Math.abs(remaining).toFixed(2)}.`
+          : `$${remaining.toFixed(2)} still unallocated. Shares must equal total amount.`
+      );
       return;
     }
     const validParticipants = participants.filter((p) => p.email.trim() !== "");
@@ -177,9 +172,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
         </div>
 
         {fetching ? (
-          <p style={{ color: "var(--text-muted)", fontSize: "14px", textAlign: "center" }}>
-            Loading...
-          </p>
+          <Loader fullPage />
         ) : (
           <form
             onSubmit={handleSubmit}
@@ -236,6 +229,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                 name="date"
                 value={form.date}
                 onChange={handleFormChange}
+                max={new Date().toISOString().split("T")[0]}
                 required
               />
             </div>
@@ -249,7 +243,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                 padding: "10px 14px",
                 background: "var(--primary-bg)",
                 borderRadius: "8px",
-                border: `1px solid ${isOverBudget ? "var(--danger)" : "var(--border)"}`,
+                border: `1px solid ${allocationInvalid ? "var(--danger)" : "var(--border)"}`,
               }}
             >
               <span style={{ fontSize: "13px", color: "var(--text-muted)", fontWeight: "500" }}>
@@ -265,7 +259,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                 style={{
                   fontSize: "13px",
                   fontWeight: "600",
-                  color: isOverBudget
+                  color: allocationInvalid
                     ? "var(--danger)"
                     : remaining === 0
                       ? "var(--success)"
@@ -287,7 +281,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                 value={form.my_share}
                 onChange={handleFormChange}
                 required
-                style={{ borderColor: isOverBudget ? "var(--danger)" : undefined }}
+                style={{ borderColor: allocationInvalid ? "var(--danger)" : undefined }}
               />
             </div>
 
@@ -387,16 +381,23 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
               </button>
             </div>
 
-            {isOverBudget && (
+            {allocationInvalid && (
               <p style={{ color: "var(--danger)", fontSize: "13px", textAlign: "center" }}>
-                ⚠️ Shares exceed total by ${Math.abs(remaining).toFixed(2)}. Please adjust.
+                {isOverBudget
+                  ? ` Shares exceed total by $${Math.abs(remaining).toFixed(2)}.`
+                  : ` $${remaining.toFixed(2)} still unallocated.`}
               </p>
             )}
 
             {error && <p style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</p>}
 
             <div
-              style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "4px" }}
+              style={{
+                display: "flex",
+                gap: "10px",
+                justifyContent: "flex-end",
+                marginTop: "4px",
+              }}
             >
               <button type="button" className="btn-outline" onClick={onClose}>
                 Cancel
@@ -404,8 +405,8 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={loading || isOverBudget}
-                style={{ opacity: isOverBudget ? 0.5 : 1 }}
+                disabled={loading || allocationInvalid}
+                style={{ opacity: allocationInvalid ? 0.5 : 1 }}
               >
                 {loading ? "Saving..." : "Save Changes"}
               </button>

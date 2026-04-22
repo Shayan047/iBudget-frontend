@@ -6,6 +6,7 @@ import UpdateExpenseModal from "../components/UpdateExpenseModal";
 import UpdateSharedExpenseModal from "../components/UpdateSharedExpenseModal";
 import ExpenseDetailModal from "../components/ExpenseDetailModal";
 import ActionMenu from "../components/ActionMenu";
+import Loader from "../components/Loader";
 
 const DEFAULT_PARTICIPANT = { email: "", amount: "" };
 
@@ -48,6 +49,8 @@ const Expenses = () => {
   const participantsTotal = participants.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
   const remaining = parseFloat((totalAmount - myShareAmount - participantsTotal).toFixed(2));
   const isOverBudget = remaining < 0;
+  const isUnderAllocated = remaining > 0;
+  const allocationInvalid = isOverBudget || isUnderAllocated;
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -79,8 +82,12 @@ const Expenses = () => {
         setError("Please enter your share of the expense.");
         return;
       }
-      if (isOverBudget) {
-        setError("Total shares exceed the expense amount.");
+      if (allocationInvalid) {
+        setError(
+          isOverBudget
+            ? `Shares exceed total by $${Math.abs(remaining).toFixed(2)}.`
+            : `$${remaining.toFixed(2)} still unallocated. Shares must equal total amount.`
+        );
         return;
       }
       const validParticipants = participants.filter((p) => p.email.trim() !== "");
@@ -251,14 +258,20 @@ const Expenses = () => {
             </div>
             <div style={{ flex: 1, minWidth: "140px" }}>
               <label>Date</label>
-              <input type="date" name="date" value={form.date} onChange={handleChange} />
+              <input
+                type="date"
+                name="date"
+                value={form.date}
+                onChange={handleChange}
+                max={new Date().toISOString().split("T")[0]}
+              />
             </div>
             <div>
               <button
                 className="btn-primary"
                 type="submit"
-                disabled={submitting || (isShared && isOverBudget)}
-                style={{ padding: "11px 24px", opacity: isShared && isOverBudget ? 0.5 : 1 }}
+                disabled={submitting || (isShared && allocationInvalid)}
+                style={{ padding: "11px 24px", opacity: isShared && allocationInvalid ? 0.5 : 1 }}
               >
                 {submitting ? "Adding..." : "+ Add"}
               </button>
@@ -330,7 +343,7 @@ const Expenses = () => {
                   style={{
                     fontSize: "13px",
                     fontWeight: "600",
-                    color: isOverBudget
+                    color: allocationInvalid
                       ? "var(--danger)"
                       : remaining === 0
                         ? "var(--success)"
@@ -449,7 +462,7 @@ const Expenses = () => {
       <div className="card">
         <h3 style={{ fontSize: "15px", fontWeight: "600", marginBottom: "18px" }}>All Expenses</h3>
         {loading ? (
-          <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading...</p>
+          <Loader fullPage />
         ) : expenses.length === 0 ? (
           <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>No expenses found.</p>
         ) : (

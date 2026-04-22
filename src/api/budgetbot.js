@@ -1,21 +1,23 @@
 import api from "./axios";
 
 /**
- * Send a message to the BudgetBot backend.
+ * Send a message to BudgetBot.
  *
  * @param {string} message - The user's message
- * @param {Array} history - Array of { role: "user" | "assistant", content: string }
+ * @param {string} sessionId - UUID generated on component mount, identifies the Redis session
  * @returns {Promise<string>} - The assistant's reply
  *
- * When connecting LangChain:
- * - The backend endpoint should accept { message, history }
- * - It should return { reply: string }
- * - history is sent so LangChain can maintain context
+ * Backend endpoint: POST /budgetbot/chat
+ * Request:  { query: string, session_id: string }
+ * Response: { reply: string }
+ *
+ * History is managed server-side in Redis using session_id as the key.
+ * Frontend does NOT send history — Redis handles context automatically.
  */
-export const sendMessage = async (message, history) => {
+export const sendMessage = async (message, sessionId) => {
   const response = await api.post("/budgetbot/chat", {
-    message,
-    history,
+    query: message,
+    session_id: sessionId,
   });
   return response.data.reply;
 };

@@ -3,18 +3,24 @@ import api from "../api/axios";
 import DeleteModal from "../components/DeleteModal";
 import UpdateMonthlyModal from "../components/UpdateMonthlyModal";
 import ActionMenu from "../components/ActionMenu";
+import Loader from "../components/Loader";
+import {
+  MONTHS,
+  getYearOptions,
+  isFutureMonth,
+  formatMonthYear,
+  monthYearToISO,
+} from "../utils/dateHelpers";
 
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
-
-const currentYear = new Date().getFullYear();
-const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i);
+const YEARS = getYearOptions();
 
 const Budget = () => {
   const [budgets, setBudgets] = useState([]);
-  const [form, setForm] = useState({ amount: "", month: "", year: String(currentYear) });
+  const [form, setForm] = useState({
+    amount: "",
+    month: "",
+    year: String(new Date().getFullYear()),
+  });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -34,7 +40,9 @@ const Budget = () => {
     }
   };
 
-  useEffect(() => { fetchBudgets(); }, []);
+  useEffect(() => {
+    fetchBudgets();
+  }, []);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -43,10 +51,11 @@ const Budget = () => {
     setError("");
     setSubmitting(true);
     try {
-      const monthIndex = MONTHS.indexOf(form.month) + 1;
-      const date = new Date(parseInt(form.year), monthIndex - 1, 1).toISOString();
-      await api.post("/budgets/", { amount: parseFloat(form.amount), date });
-      setForm({ amount: "", month: "", year: String(currentYear) });
+      await api.post("/budgets/", {
+        amount: parseFloat(form.amount),
+        date: monthYearToISO(MONTHS[parseInt(form.month) - 1], form.year),
+      });
+      setForm({ amount: "", month: "", year: String(new Date().getFullYear()) });
       fetchBudgets();
     } catch (err) {
       setError("Failed to add budget.");
@@ -66,11 +75,6 @@ const Budget = () => {
     } finally {
       setDeleteLoading(false);
     }
-  };
-
-  const formatMonth = (dateStr) => {
-    const d = new Date(dateStr);
-    return `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
   };
 
   return (
@@ -98,43 +102,67 @@ const Budget = () => {
         </p>
       </div>
 
-      {/* Add Budget Form */}
       <div className="card" style={{ marginBottom: "24px" }}>
-        <h3 style={{ fontSize: "15px", fontWeight: "600", marginBottom: "18px" }}>Set New Budget</h3>
-        <form onSubmit={handleSubmit} style={{ display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "flex-end" }}>
+        <h3 style={{ fontSize: "15px", fontWeight: "600", marginBottom: "18px" }}>
+          Set New Budget
+        </h3>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", gap: "14px", flexWrap: "wrap", alignItems: "flex-end" }}
+        >
           <div style={{ flex: 1, minWidth: "120px" }}>
             <label>Amount</label>
-            <input type="number" name="amount" placeholder="0.00" step="0.01"
-              value={form.amount} onChange={handleChange} required />
+            <input
+              type="number"
+              name="amount"
+              placeholder="0.00"
+              step="0.01"
+              value={form.amount}
+              onChange={handleChange}
+              required
+            />
           </div>
           <div style={{ flex: 1, minWidth: "140px" }}>
             <label>Month</label>
             <select name="month" value={form.month} onChange={handleChange} required>
               <option value="">Select month</option>
-              {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1} disabled={isFutureMonth(i + 1, parseInt(form.year))}>
+                  {m}
+                </option>
+              ))}
             </select>
           </div>
           <div style={{ flex: 1, minWidth: "100px" }}>
             <label>Year</label>
             <select name="year" value={form.year} onChange={handleChange} required>
-              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              {YEARS.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <button className="btn-primary" type="submit" disabled={submitting}
-              style={{ padding: "11px 24px" }}>
+            <button
+              className="btn-primary"
+              type="submit"
+              disabled={submitting}
+              style={{ padding: "11px 24px" }}
+            >
               {submitting ? "Adding..." : "+ Add"}
             </button>
           </div>
         </form>
-        {error && <p style={{ color: "var(--danger)", fontSize: "13px", marginTop: "10px" }}>{error}</p>}
+        {error && (
+          <p style={{ color: "var(--danger)", fontSize: "13px", marginTop: "10px" }}>{error}</p>
+        )}
       </div>
 
-      {/* Budget Table */}
       <div className="card">
         <h3 style={{ fontSize: "15px", fontWeight: "600", marginBottom: "18px" }}>All Budgets</h3>
         {loading ? (
-          <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading...</p>
+          <Loader fullPage />
         ) : budgets.length === 0 ? (
           <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>No budgets set yet.</p>
         ) : (
@@ -142,7 +170,9 @@ const Budget = () => {
             <thead>
               <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
                 <th style={{ textAlign: "left", padding: "8px 0", fontWeight: "500" }}>Month</th>
-                <th style={{ textAlign: "right", padding: "8px 0", fontWeight: "500" }}>Budget Amount</th>
+                <th style={{ textAlign: "right", padding: "8px 0", fontWeight: "500" }}>
+                  Budget Amount
+                </th>
                 <th style={{ textAlign: "right", padding: "8px 0", fontWeight: "500" }}>Action</th>
               </tr>
             </thead>
@@ -150,15 +180,23 @@ const Budget = () => {
               {budgets.map((bud) => (
                 <tr key={bud.id} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "13px 0", color: "var(--text-muted)" }}>
-                    {formatMonth(bud.date)}
+                    {formatMonthYear(bud.date)}
                   </td>
-                  <td style={{ padding: "13px 0", textAlign: "right", fontWeight: "600", color: "var(--primary)" }}>
+                  <td
+                    style={{
+                      padding: "13px 0",
+                      textAlign: "right",
+                      fontWeight: "600",
+                      color: "var(--primary)",
+                    }}
+                  >
                     ${bud.amount.toLocaleString()}
                   </td>
                   <td style={{ padding: "13px 0", textAlign: "right" }}>
                     <ActionMenu
                       onEdit={() => setUpdateTarget(bud)}
                       onDelete={() => setDeleteTarget(bud)}
+                      canModify={true}
                     />
                   </td>
                 </tr>

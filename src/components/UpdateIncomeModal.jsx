@@ -1,15 +1,10 @@
 import { useState } from "react";
 import api from "../api/axios";
-import { MONTHS, getYearOptions, monthYearToISO } from "../utils/dateHelpers";
 
-const YEARS = getYearOptions();
-
-const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
-  const itemDate = new Date(item.date);
+const UpdateIncomeModal = ({ item, onClose, onUpdated }) => {
   const [form, setForm] = useState({
-    amount: item.amount,
-    month: MONTHS[itemDate.getMonth()],
-    year: String(itemDate.getFullYear()),
+    amount: item.amount || "",
+    date: item.date ? new Date(item.date).toISOString().split("T")[0] : "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,16 +16,14 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
     setError("");
     setLoading(true);
     try {
-      const monthIndex = MONTHS.indexOf(form.month) + 1;
-      const date = new Date(parseInt(form.year), monthIndex - 1, 1).toISOString();
-      await api.patch(`/${type}s/${item.id}`, {
+      await api.patch(`/incomes/${item.id}`, {
         amount: parseFloat(form.amount),
-        date,
+        date: new Date(form.date).toISOString(),
       });
       onUpdated();
       onClose();
     } catch (err) {
-      setError(`Failed to update ${type}.`);
+      setError("Failed to update income.");
     } finally {
       setLoading(false);
     }
@@ -53,7 +46,7 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
       <div
         onClick={(e) => e.stopPropagation()}
         className="card"
-        style={{ width: "100%", maxWidth: "400px", padding: "32px" }}
+        style={{ width: "100%", maxWidth: "380px", padding: "32px" }}
       >
         <div
           style={{
@@ -63,9 +56,7 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
             marginBottom: "24px",
           }}
         >
-          <h3 style={{ fontSize: "16px", fontWeight: "700" }}>
-            Update {type.charAt(0).toUpperCase() + type.slice(1)}
-          </h3>
+          <h3 style={{ fontSize: "16px", fontWeight: "700" }}>Update Income</h3>
           <button
             onClick={onClose}
             style={{
@@ -97,24 +88,15 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
             />
           </div>
           <div>
-            <label>Month</label>
-            <select name="month" value={form.month} onChange={handleChange} required>
-              {MONTHS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label>Year</label>
-            <select name="year" value={form.year} onChange={handleChange} required>
-              {YEARS.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
+            <label>Date</label>
+            <input
+              type="date"
+              name="date"
+              value={form.date}
+              onChange={handleChange}
+              max={new Date().toISOString().split("T")[0]}
+              required
+            />
           </div>
 
           {error && <p style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</p>}
@@ -135,4 +117,4 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
   );
 };
 
-export default UpdateMonthlyModal;
+export default UpdateIncomeModal;
