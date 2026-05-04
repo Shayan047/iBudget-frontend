@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../api/axios";
+import Loader from "./Loader";
 
 const UpdateExpenseModal = ({ expense, categories, onClose, onUpdated }) => {
   const [form, setForm] = useState({
@@ -7,9 +8,27 @@ const UpdateExpenseModal = ({ expense, categories, onClose, onUpdated }) => {
     category_id: expense.category?.id || "",
     description: expense.description || "",
     date: expense.date ? new Date(expense.date).toISOString().split("T")[0] : "",
+    tax_amount: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Fetch full detail to get current tax amount
+  useEffect(() => {
+    const fetchDetail = async () => {
+      try {
+        const res = await api.get(`/expenses/${expense.id}`);
+        const d = res.data;
+        setForm((prev) => ({
+          ...prev,
+          tax_amount: d.tax?.amount ?? "",
+        }));
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchDetail();
+  }, [expense.id]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -23,6 +42,7 @@ const UpdateExpenseModal = ({ expense, categories, onClose, onUpdated }) => {
         category_id: parseInt(form.category_id),
         description: form.description,
         date: new Date(form.date).toISOString(),
+        tax_amount: form.tax_amount !== "" ? parseFloat(form.tax_amount) : null,
       });
       onUpdated();
       onClose();
@@ -86,6 +106,7 @@ const UpdateExpenseModal = ({ expense, categories, onClose, onUpdated }) => {
               type="number"
               name="amount"
               step="0.01"
+              min="0.01"
               value={form.amount}
               onChange={handleChange}
               required
@@ -114,7 +135,29 @@ const UpdateExpenseModal = ({ expense, categories, onClose, onUpdated }) => {
           </div>
           <div>
             <label>Date</label>
-            <input type="date" name="date" value={form.date} onChange={handleChange} required />
+            <input
+              type="date"
+              name="date"
+              value={form.date}
+              onChange={handleChange}
+              max={new Date().toISOString().split("T")[0]}
+              required
+            />
+          </div>
+          <div>
+            <label>Tax Amount (optional)</label>
+            <input
+              type="number"
+              name="tax_amount"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              value={form.tax_amount}
+              onChange={handleChange}
+            />
+            <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+              Set to 0 to remove existing tax
+            </p>
           </div>
 
           {error && <p style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</p>}
@@ -126,7 +169,7 @@ const UpdateExpenseModal = ({ expense, categories, onClose, onUpdated }) => {
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? <Loader size="small" /> : "Save Changes"}
             </button>
           </div>
         </form>

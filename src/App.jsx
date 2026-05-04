@@ -10,6 +10,7 @@ import Income from "./pages/Income";
 import Budget from "./pages/Budget";
 import Settings from "./pages/Settings";
 import BudgetBot from "./pages/BudgetBot";
+import Taxes from "./pages/Taxes";
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
             <Route path="/budget" element={<Budget />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/budgetbot" element={<BudgetBot />} />
+            <Route path="/taxes" element={<Taxes />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/login" />} />

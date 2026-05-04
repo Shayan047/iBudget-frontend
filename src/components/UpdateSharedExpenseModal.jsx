@@ -16,6 +16,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
     my_share: "",
     description: "",
     date: "",
+    tax_amount: "", // ← add
   });
 
   const [participants, setParticipants] = useState([{ ...DEFAULT_PARTICIPANT }]);
@@ -34,6 +35,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
           my_share: creatorEntry?.amount ?? "",
           description: d.description ?? "",
           date: d.date ? new Date(d.date).toISOString().split("T")[0] : "",
+          tax_amount: d.tax?.amount ?? "", // ← add
         });
 
         const nonCreators = d.participants?.filter((p) => !p.is_creator) || [];
@@ -107,6 +109,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
         my_share: myShareAmount,
         description: form.description,
         date: new Date(form.date).toISOString(),
+        tax_amount: form.tax_amount !== "" ? parseFloat(form.tax_amount) : null,
         users: validParticipants.map((p) => ({
           email: p.email,
           amount: parseFloat(p.amount),
@@ -185,6 +188,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                 type="number"
                 name="total_amount"
                 step="0.01"
+                min="0.01"
                 value={form.total_amount}
                 onChange={handleFormChange}
                 required
@@ -234,6 +238,23 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
               />
             </div>
 
+            {/* Tax Amount */}
+            <div>
+              <label>Tax Amount (optional — split equally among all participants)</label>
+              <input
+                type="number"
+                name="tax_amount"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={form.tax_amount}
+                onChange={handleFormChange}
+              />
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+                Set to 0 to remove existing tax
+              </p>
+            </div>
+
             {/* Allocation tracker */}
             <div
               style={{
@@ -277,6 +298,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                 type="number"
                 name="my_share"
                 step="0.01"
+                min="0.01"
                 placeholder="0.00"
                 value={form.my_share}
                 onChange={handleFormChange}
@@ -315,6 +337,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                         <input
                           type="number"
                           step="0.01"
+                          min="0.01"
                           placeholder="0.00"
                           value={p.amount}
                           onChange={(e) => handleParticipantChange(index, "amount", e.target.value)}
@@ -408,7 +431,7 @@ const UpdateSharedExpenseModal = ({ expense, categories, onClose, onUpdated }) =
                 disabled={loading || allocationInvalid}
                 style={{ opacity: allocationInvalid ? 0.5 : 1 }}
               >
-                {loading ? "Saving..." : "Save Changes"}
+                {loading ? <Loader size="small" /> : "Save Changes"}
               </button>
             </div>
           </form>

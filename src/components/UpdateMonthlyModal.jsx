@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../api/axios";
-import { MONTHS, getYearOptions, monthYearToISO } from "../utils/dateHelpers";
+import { MONTHS, getYearOptions, monthYearToISO, isFutureMonth } from "../utils/dateHelpers";
+import Loader from "./Loader";
 
 const YEARS = getYearOptions();
 
@@ -91,6 +92,7 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
               type="number"
               name="amount"
               step="0.01"
+              min="0.01"
               value={form.amount}
               onChange={handleChange}
               required
@@ -99,8 +101,9 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
           <div>
             <label>Month</label>
             <select name="month" value={form.month} onChange={handleChange} required>
-              {MONTHS.map((m) => (
-                <option key={m} value={m}>
+              <option value="">Select month</option>
+              {MONTHS.map((m, i) => (
+                <option key={m} value={i + 1} disabled={isFutureMonth(i + 1, parseInt(form.year))}>
                   {m}
                 </option>
               ))}
@@ -126,7 +129,7 @@ const UpdateMonthlyModal = ({ item, type, onClose, onUpdated }) => {
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? <Loader size="small" /> : "Save Changes"}
             </button>
           </div>
         </form>

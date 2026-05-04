@@ -13,7 +13,13 @@ const DEFAULT_PARTICIPANT = { email: "", amount: "" };
 const Expenses = () => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [form, setForm] = useState({ amount: "", category_id: "", date: "", description: "" });
+  const [form, setForm] = useState({
+    amount: "",
+    category_id: "",
+    date: "",
+    description: "",
+    tax_amount: "",
+  });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -107,6 +113,7 @@ const Expenses = () => {
           date: form.date || new Date().toISOString(),
           total_amount: totalAmount,
           my_share: myShareAmount,
+          tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : null,
           users: validParticipants.map((p) => ({
             email: p.email,
             amount: parseFloat(p.amount),
@@ -118,10 +125,11 @@ const Expenses = () => {
           description: form.description,
           category_id: parseInt(form.category_id),
           date: form.date || new Date().toISOString(),
+          tax_amount: form.tax_amount ? parseFloat(form.tax_amount) : null,
         });
       }
 
-      setForm({ amount: "", category_id: "", date: "", description: "" });
+      setForm({ amount: "", category_id: "", date: "", description: "", tax_amount: "" });
       setMyShare("");
       setParticipants([{ ...DEFAULT_PARTICIPANT }]);
       setIsShared(false);
@@ -205,6 +213,7 @@ const Expenses = () => {
                 name="amount"
                 placeholder="0.00"
                 step="0.01"
+                min="0.01"
                 value={form.amount}
                 onChange={handleChange}
                 required
@@ -217,6 +226,18 @@ const Expenses = () => {
                 name="description"
                 placeholder="e.g. Weekly Groceries"
                 value={form.description}
+                onChange={handleChange}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: "120px" }}>
+              <label>Tax Amount</label>
+              <input
+                type="number"
+                name="tax_amount"
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                value={form.tax_amount}
                 onChange={handleChange}
               />
             </div>
@@ -273,7 +294,7 @@ const Expenses = () => {
                 disabled={submitting || (isShared && allocationInvalid)}
                 style={{ padding: "11px 24px", opacity: isShared && allocationInvalid ? 0.5 : 1 }}
               >
-                {submitting ? "Adding..." : "+ Add"}
+                {submitting ? <Loader size="small" /> : "+ Add"}
               </button>
             </div>
           </div>
@@ -360,6 +381,7 @@ const Expenses = () => {
                   type="number"
                   placeholder="0.00"
                   step="0.01"
+                  min="0.01"
                   value={myShare}
                   onChange={(e) => setMyShare(e.target.value)}
                   required={isShared}
@@ -386,9 +408,22 @@ const Expenses = () => {
                         type="number"
                         placeholder="0.00"
                         step="0.01"
+                        min="0.01"
                         value={p.amount}
                         onChange={(e) => handleParticipantChange(index, "amount", e.target.value)}
                         required={isShared}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label>Tax Amount (optional — split equally)</label>
+                      <input
+                        type="number"
+                        name="tax_amount"
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0"
+                        value={form.tax_amount}
+                        onChange={handleChange}
                       />
                     </div>
                     <div style={{ paddingBottom: "2px" }}>

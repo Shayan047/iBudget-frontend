@@ -7,7 +7,7 @@ import Loader from "../components/Loader";
 
 const Income = () => {
   const [incomes, setIncomes] = useState([]);
-  const [form, setForm] = useState({ amount: "", date: "" });
+  const [form, setForm] = useState({ amount: "", description: "", date: "", tax_amount: "" });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -42,9 +42,11 @@ const Income = () => {
     try {
       await api.post("/incomes/", {
         amount: parseFloat(form.amount),
+        description: form.description,
         date: new Date(form.date).toISOString(),
+        tax_amount: form.tax_amount !== "" ? parseFloat(form.tax_amount) : null,
       });
-      setForm({ amount: "", date: "" });
+      setForm({ amount: "", description: "", date: "", tax_amount: "" });
       fetchIncomes();
     } catch (err) {
       setError("Failed to add income.");
@@ -106,7 +108,19 @@ const Income = () => {
               name="amount"
               placeholder="0.00"
               step="0.01"
+              min="0.01"
               value={form.amount}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div style={{ flex: 2, minWidth: "200px" }}>
+            <label>Description</label>
+            <input
+              type="text"
+              name="description"
+              placeholder="e.g. Monthly Salary"
+              value={form.description}
               onChange={handleChange}
               required
             />
@@ -120,6 +134,18 @@ const Income = () => {
               onChange={handleChange}
               max={today}
               required
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: "120px" }}>
+            <label>Tax Amount (optional)</label>
+            <input
+              type="number"
+              name="tax_amount"
+              placeholder="0.00"
+              step="0.01"
+              min="0"
+              value={form.tax_amount}
+              onChange={handleChange}
             />
           </div>
           <div>
@@ -150,7 +176,11 @@ const Income = () => {
             <thead>
               <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
                 <th style={{ textAlign: "left", padding: "8px 0", fontWeight: "500" }}>Date</th>
+                <th style={{ textAlign: "left", padding: "8px 0", fontWeight: "500" }}>
+                  Description
+                </th>
                 <th style={{ textAlign: "right", padding: "8px 0", fontWeight: "500" }}>Amount</th>
+                <th style={{ textAlign: "right", padding: "8px 0", fontWeight: "500" }}>Tax</th>
                 <th style={{ textAlign: "right", padding: "8px 0", fontWeight: "500" }}>Action</th>
               </tr>
             </thead>
@@ -163,12 +193,34 @@ const Income = () => {
                   <td
                     style={{
                       padding: "13px 0",
+                      color: "var(--text-muted)",
+                      maxWidth: "160px",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {inc.description || "—"}
+                  </td>
+                  <td
+                    style={{
+                      padding: "13px 0",
                       textAlign: "right",
                       fontWeight: "600",
                       color: "var(--success)",
                     }}
                   >
                     +${inc.amount.toLocaleString()}
+                  </td>
+                  <td
+                    style={{
+                      padding: "13px 0",
+                      textAlign: "right",
+                      color: "var(--text-muted)",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {inc.tax ? `$${inc.tax.amount.toFixed(2)}` : "—"}
                   </td>
                   <td style={{ padding: "13px 0", textAlign: "right" }}>
                     <ActionMenu

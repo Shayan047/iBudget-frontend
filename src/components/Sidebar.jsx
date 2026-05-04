@@ -6,6 +6,7 @@ import {
   BanknotesIcon,
   ChartBarIcon,
   ChatBubbleLeftRightIcon,
+  ReceiptPercentIcon,
   Cog6ToothIcon,
   ArrowLeftStartOnRectangleIcon,
 } from "@heroicons/react/24/outline";
@@ -16,6 +17,7 @@ const navItems = [
   { to: "/expenses", label: "Expenses", icon: CreditCardIcon },
   { to: "/income", label: "Income", icon: BanknotesIcon },
   { to: "/budget", label: "Budget", icon: ChartBarIcon },
+  { to: "/taxes", label: "Taxes", icon: ReceiptPercentIcon },
   { to: "/settings", label: "Settings", icon: Cog6ToothIcon },
 ];
 

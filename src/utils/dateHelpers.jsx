@@ -51,5 +51,5 @@ export const formatMonthYear = (dateStr) => {
  */
 export const monthYearToISO = (monthName, year) => {
   const monthIndex = MONTHS.indexOf(monthName);
-  return new Date(parseInt(year), monthIndex, 1).toISOString();
+  return new Date(parseInt(year), monthIndex, 1).toISOString().split("T")[0];
 };

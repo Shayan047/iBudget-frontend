@@ -1,10 +1,13 @@
 import { useState } from "react";
 import api from "../api/axios";
+import Loader from "./Loader";
 
 const UpdateIncomeModal = ({ item, onClose, onUpdated }) => {
   const [form, setForm] = useState({
     amount: item.amount || "",
+    description: item.description || "",
     date: item.date ? new Date(item.date).toISOString().split("T")[0] : "",
+    tax_amount: item.tax?.amount ?? "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,7 +21,9 @@ const UpdateIncomeModal = ({ item, onClose, onUpdated }) => {
     try {
       await api.patch(`/incomes/${item.id}`, {
         amount: parseFloat(form.amount),
+        description: form.description,
         date: new Date(form.date).toISOString(),
+        tax_amount: form.tax_amount !== "" ? parseFloat(form.tax_amount) : null,
       });
       onUpdated();
       onClose();
@@ -82,7 +87,19 @@ const UpdateIncomeModal = ({ item, onClose, onUpdated }) => {
               type="number"
               name="amount"
               step="0.01"
+              min="0.01"
               value={form.amount}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          <div>
+            <label>Description</label>
+            <input
+              type="text"
+              name="description"
+              placeholder="e.g. Monthly Salary"
+              value={form.description}
               onChange={handleChange}
               required
             />
@@ -98,6 +115,21 @@ const UpdateIncomeModal = ({ item, onClose, onUpdated }) => {
               required
             />
           </div>
+          <div>
+            <label>Tax Amount (optional)</label>
+            <input
+              type="number"
+              name="tax_amount"
+              step="0.01"
+              min="0"
+              placeholder="0.00"
+              value={form.tax_amount}
+              onChange={handleChange}
+            />
+            <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+              Set to 0 to remove existing tax
+            </p>
+          </div>
 
           {error && <p style={{ color: "var(--danger)", fontSize: "13px" }}>{error}</p>}
 
@@ -108,7 +140,7 @@ const UpdateIncomeModal = ({ item, onClose, onUpdated }) => {
               Cancel
             </button>
             <button type="submit" className="btn-primary" disabled={loading}>
-              {loading ? "Saving..." : "Save Changes"}
+              {loading ? <Loader size="small" /> : "Save Changes"}
             </button>
           </div>
         </form>

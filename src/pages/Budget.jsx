@@ -117,6 +117,8 @@ const Budget = () => {
               name="amount"
               placeholder="0.00"
               step="0.01"
+              min="0.01"
+              min="0.01"
               value={form.amount}
               onChange={handleChange}
               required
@@ -150,7 +152,7 @@ const Budget = () => {
               disabled={submitting}
               style={{ padding: "11px 24px" }}
             >
-              {submitting ? "Adding..." : "+ Add"}
+              {submitting ? <Loader size="small" /> : "+ Add"}
             </button>
           </div>
         </form>

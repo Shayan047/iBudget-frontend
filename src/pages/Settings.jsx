@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
+import Loader from "../components/Loader";
 
 const Settings = () => {
   const { user, login, token } = useAuth();
@@ -153,7 +154,7 @@ const Settings = () => {
               disabled={nameSaving}
               style={{ alignSelf: "flex-start", padding: "10px 24px" }}
             >
-              {nameSaving ? "Saving..." : "Save Name"}
+              {nameSaving ? <Loader size="small" /> : "Save Name"}
             </button>
           </form>
         </div>
@@ -214,7 +215,7 @@ const Settings = () => {
               disabled={passwordSaving}
               style={{ alignSelf: "flex-start", padding: "10px 24px" }}
             >
-              {passwordSaving ? "Updating..." : "Update Password"}
+              {passwordSaving ? <Loader size="small" /> : "Update Password"}
             </button>
           </form>
         </div>

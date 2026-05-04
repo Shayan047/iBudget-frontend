@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
+import Loader from "../components/Loader";
 
 const Login = () => {
   const { login, token } = useAuth();
@@ -91,18 +92,24 @@ const Login = () => {
             </div>
 
             {error && (
-              <p style={{ color: "var(--danger)", fontSize: "13px", textAlign: "center" }}>
-                {error}
-              </p>
+              <p style={{ color: "var(--danger)", fontSize: "13px", textAlign: "left" }}>{error}</p>
             )}
 
             <button
               className="btn-primary"
               type="submit"
               disabled={loading}
-              style={{ width: "100%", padding: "13px", marginTop: "4px", fontSize: "15px" }}
+              style={{
+                width: "100%",
+                padding: "13px",
+                marginTop: "4px",
+                fontSize: "15px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? <Loader size="small" /> : "Sign In"}
             </button>
           </form>
 
